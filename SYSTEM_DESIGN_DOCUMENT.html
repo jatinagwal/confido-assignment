@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>System Design Document - Confido Health AI Assistant</title>
+    <style>
+      :root {
+        --bg: #f3f4f6;
+        --page-bg: #ffffff;
+        --text: #111827;
+        --muted: #4b5563;
+        --accent: #2563eb;
+        --border: #e5e7eb;
+        --code-bg: #f9fafb;
+      }
+
+      @page {
+        margin: 1in;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #e5e7eb 0, #f9fafb 45%, #f3f4f6 100%);
+        color: var(--text);
+        line-height: 1.7;
+        font-size: 14px;
+      }
+
+      .page {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 32px 40px 44px;
+        background: var(--page-bg);
+        border-radius: 16px;
+        box-shadow:
+          0 20px 35px rgba(15, 23, 42, 0.12),
+          0 1px 3px rgba(15, 23, 42, 0.08);
+      }
+
+      header {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 14px;
+        margin-bottom: 20px;
+      }
+
+      header h1 {
+        font-size: 26px;
+        margin: 0 0 2px;
+        letter-spacing: 0.03em;
+      }
+
+      header h2 {
+        font-size: 15px;
+        margin: 0;
+        font-weight: 500;
+        color: var(--muted);
+      }
+
+      header .meta {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      h2 {
+        font-size: 19px;
+        margin-top: 26px;
+        margin-bottom: 6px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #0f172a;
+      }
+
+      h3 {
+        font-size: 16px;
+        margin-top: 18px;
+        margin-bottom: 4px;
+        color: #111827;
+      }
+
+      h4 {
+        font-size: 14px;
+        margin-top: 14px;
+        margin-bottom: 2px;
+        color: #111827;
+      }
+
+      p {
+        margin: 4px 0 8px;
+      }
+
+      strong {
+        font-weight: 600;
+      }
+
+      ul,
+      ol {
+        margin: 4px 0 8px 20px;
+        padding: 0;
+      }
+
+      li {
+        margin: 2px 0;
+      }
+
+      code {
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+          Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        background: #f3f4f6;
+        padding: 1px 4px;
+        border-radius: 3px;
+      }
+
+      pre {
+        margin: 8px 0 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        font-size: 12px;
+        overflow: hidden;
+        white-space: pre;
+      }
+
+      pre code {
+        background: transparent;
+        padding: 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0 14px;
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 6px 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f3f4f6;
+        font-weight: 600;
+      }
+
+      .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 11px;
+        font-weight: 500;
+        border: 1px solid #dbeafe;
+      }
+
+      .section-lead {
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+
+      .page-break {
+        page-break-before: always;
+        margin-top: 40px;
+      }
+
+      .check-list li::marker {
+        content: "• ";
+      }
+
+      @media print {
+        body {
+          background: #ffffff !important;
+          padding: 0;
+        }
+
+        .page {
+          box-shadow: none;
+          border-radius: 0;
+          padding: 0;
+          max-width: 100%;
+        }
+
+        header {
+          margin-top: 0;
+        }
+
+        pre,
+        table {
+          page-break-inside: avoid;
+        }
+
+        h2,
+        h3 {
+          page-break-after: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <article class="page">
+      <header>
+        <h1>System Design Document: Voice-Enabled Healthcare Front-Desk Assistant</h1>
+        <div class="meta">
+          <span class="pill">Voice + LLM</span>
+        </div>
+      </header>
+
+      <section>
+        <h2>1. Architecture Overview</h2>
+        <p class="section-lead">
+          High-level architecture of the AI front-desk assistant, showing how
+          voice, LLM, tools, and knowledge base interact to support scheduling,
+          insurance, and FAQ workflows.
+        </p>
+
+        <h3>1.1 System Architecture</h3>
+        <p>
+          The assistant prototype follows an API-first architecture that uses managed
+          voice and language services rather than custom-built models:
+        </p>
+
+        <pre><code>┌──────────────────────────── Patient Caller ────────────────────────────┐
+│  Phone / Web Widget                                                   │
+│  - Speaks questions and answers                                      │
+│  - Hears synthesized voice responses                                 │
+└───────────────────────────────┬───────────────────────────────────────┘
+                                │
+                                │  Audio stream (16 kHz PCM)
+                                ▼
+┌──────────────────────────── ElevenLabs Voice Layer ───────────────────┐
+│  ┌──────────────┐   ┌─────────────────────┐   ┌──────────────┐       │
+│  │    ASR       │   │  Conversation Loop  │   │     TTS      │       │
+│  │ Speech → Text│──▶│  Turn-taking &      │◀──│ Text → Speech│       │
+│  │              │   │  interruption logic │   │              │       │
+│  └──────────────┘   └──────────┬──────────┘   └──────────────┘       │
+└─────────────────────────────────┼─────────────────────────────────────┘
+                                  │
+                                  │  Text (user turns) + tool results
+                                  ▼
+                       ┌──────────┴──────────┐
+                       │   LLM Engine       │
+                       │   Gemini 2.5       │
+                       │ + System Prompt    │
+                       └──────────┬──────────┘
+                                  │
+             ┌────────────────────┼────────────────────┐
+             │                    │                    │
+             ▼                    ▼                    ▼
+     ┌──────────────┐     ┌──────────────┐     ┌─────────────────┐
+     │ Knowledge    │     │   Tools      │     │  Cal.com API    │
+     │ Base (RAG)   │     │ (webhooks)   │     │  Slots/Booking  │
+     │ - Clinic info│     │ - end_call   │     │  Availability   │
+     │ - Insurance  │     │ - get_slots  │     │  & Bookings     │
+     │ - Edge cases │     │ - create_booking    │                 │
+     └──────────────┘     └──────────────┘     └─────────────────┘</code></pre>
+
+        <h3>1.2 Component Interaction Flow</h3>
+
+        <p><strong>1. User Input → Speech Recognition</strong></p>
+        <ul>
+          <li>Patient speaks into phone or web-based widget.</li>
+          <li>ElevenLabs ASR (Automatic Speech Recognition) converts speech to text.</li>
+          <li><strong>Quality:</strong> “normal” mode balances accuracy and latency.</li>
+          <li>Supports background noise handling and varied accents.</li>
+        </ul>
+
+        <p><strong>2. Text → LLM Processing</strong></p>
+        <ul>
+          <li>Transcribed text is sent to Gemini&nbsp;2.5&nbsp;Flash.</li>
+          <li>
+            A detailed system prompt (~3,500+ words) defines role, tone, guardrails,
+            tools, and edge-case handling.
+          </li>
+          <li>Clinic- and insurance-specific context is retrieved from the knowledge base when relevant.</li>
+          <li>The LLM generates responses based on current conversation state and tools’ outputs.</li>
+        </ul>
+
+        <p><strong>3. Tool Execution (when needed)</strong></p>
+        <ul>
+          <li>LLM decides when to call tools based on intent and missing information.</li>
+          <li><code>calcom_get_available_slots</code>: queries Cal.com for appointment availability.</li>
+          <li><code>calcom_create_booking</code>: creates bookings once a specific slot is chosen.</li>
+          <li><code>end_call</code>: cleanly terminates the interaction.</li>
+          <li>Tool responses are fed back into the LLM to generate natural language confirmations.</li>
+        </ul>
+
+        <p><strong>4. Response → Speech Synthesis</strong></p>
+        <ul>
+          <li>LLM response text is sent to ElevenLabs TTS.</li>
+          <li>Voice model: <strong>ElevenLabs Turbo V2.5</strong> (voice ID: <code>FGY2WhTYpPnrIDTdsKH5</code>).</li>
+          <li>Speed: <strong>1.1x</strong> for efficient but comprehensible speech.</li>
+          <li>Stability 0.5 and similarity boost 0.8 give a warm, consistent voice suitable for healthcare.</li>
+        </ul>
+
+        <p><strong>5. Turn Management</strong></p>
+        <ul>
+          <li>Turn-based conversation mode with ~3s timeout.</li>
+          <li>“High” turn eagerness reduces awkward silence between turns.</li>
+          <li>Interruption detection allows patients to cut in naturally.</li>
+        </ul>
+
+        <h3>1.3 Data Flow: Appointment Scheduling Example</h3>
+
+        <pre><code>Patient: "I need to book an appointment for next Monday"
+    ↓
+ASR: Converts to text
+    ↓
+LLM: Parses intent (scheduling), extracts date preference
+    ↓
+Agent: Collects missing info (name, email)
+    ↓
+Agent: Calculates date (Nov 16, 2025 + "next Monday" = Nov 18, 2025)
+    ↓
+Tool Call: calcom_get_available_slots(start="2025-11-18", end="2025-11-18")
+    ↓
+Cal.com API: Returns UTC times:
+  ["2025-11-18T03:30:00.000Z", "2025-11-18T09:00:00.000Z"]
+    ↓
+LLM: Converts to IST (UTC+5:30): "9:00 AM, 2:30 PM"
+    ↓
+Agent: "I have 9:00 AM or 2:30 PM available. Which works best?"
+    ↓
+Patient: "9:00 AM works"
+    ↓
+Tool Call: calcom_create_booking(
+  start="2025-11-18T03:30:00.000Z",
+  attendee={ name, email, timeZone: "Asia/Kolkata", language: "en" }
+)
+    ↓
+Agent: "Perfect! Your appointment is confirmed for Monday, Nov 18 at 9:00 AM."</code></pre>
+      </section>
+
+      <section class="page-break">
+        <h2>2. Tech Stack &amp; Tools</h2>
+        <p class="section-lead">
+          Technologies and services chosen for each part of the solution, and the
+          trade-offs behind those decisions.
+        </p>
+
+        <h3>2.1 Core Technologies</h3>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Technology</th>
+              <th>Rationale</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Voice Platform</strong></td>
+              <td>ElevenLabs Conversational AI</td>
+              <td>
+                Provides integrated ASR + TTS and conversation control with
+                turn-taking and interruption handling; reduces orchestration
+                complexity for this prototype.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>LLM</strong></td>
+              <td>Gemini 2.5 Flash</td>
+              <td>
+                Fast inference (sub-second in many cases), excellent instruction following,
+                and cost-effective for voice-heavy workloads; deterministic behavior at
+                temperature 0 is well-suited for healthcare.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>ASR</strong></td>
+              <td>ElevenLabs ASR</td>
+              <td>
+                Native integration with the voice stack, optimized for conversational audio
+                and medical-ish vocabulary; no extra plumbing needed.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>TTS</strong></td>
+              <td>ElevenLabs Turbo V2.5</td>
+              <td>
+                Neural TTS with low latency and configurable stability/similarity
+                parameters used to approximate a warm, professional front-desk tone.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Scheduling</strong></td>
+              <td>Cal.com API v2</td>
+              <td>
+                Purpose-built scheduling API with support for slots and bookings; easily
+                replaceable with real EMR scheduling in production.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Knowledge Base</strong></td>
+              <td>ElevenLabs RAG</td>
+              <td>
+                Automatically surfaces relevant clinic, insurance, and edge-case content
+                without requiring manual prompt stuffing.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Frontend</strong></td>
+              <td>React + TypeScript + Vite</td>
+              <td>
+                Modern SPA stack for dashboard and configuration UI; TypeScript improves
+                reliability; Vite offers fast dev/build times.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Management UI</strong></td>
+              <td>React dashboard</td>
+              <td>
+                Provides login, balance monitoring, agent creation, and knowledge base
+                upload in one place.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>2.2 Technology Choices &amp; Alternatives</h3>
+
+        <p><strong>ElevenLabs vs custom STT/LLM/TTS stack</strong></p>
+        <ul>
+          <li>
+            <strong>Chosen over:</strong> Separate Whisper (ASR) + GPT-4 (LLM) + Polly (TTS).
+          </li>
+          <li>
+            <strong>Reason:</strong> ElevenLabs provides end-to-end orchestration, latency
+            optimization, and interruption handling out-of-the-box. This removes a large amount
+            of “glue code” and lets the focus be on product behavior instead of infrastructure.
+          </li>
+        </ul>
+
+        <p><strong>Gemini&nbsp;2.5 Flash vs GPT-4 / Claude / open-source LLMs</strong></p>
+        <ul>
+          <li>Gemini Flash is optimized for speed, which is critical in a voice UX.</li>
+          <li>At temperature 0 it follows detailed system prompts reliably, which is needed for guardrails.</li>
+          <li>Costs are significantly lower than GPT-4 for sustained call volumes.</li>
+        </ul>
+
+        <p><strong>Cal.com vs custom scheduler or Google Calendar</strong></p>
+        <ul>
+          <li>
+            Cal.com exposes a simple slots API and a bookings API that map cleanly to “check
+            availability” and “confirm appointment” conversations.
+          </li>
+          <li>
+            In a real deployment, the same pattern would map onto clinic EMR scheduling
+            (Epic, Cerner, Athena) with similar tool contracts.
+          </li>
+        </ul>
+
+        <p><strong>Other approaches considered</strong></p>
+        <ul>
+          <li>
+            <strong>Retell.AI / VAPI.AI</strong> – Good for orchestration, but ElevenLabs
+            offered better voice quality and more flexibility with tools for this use case.
+          </li>
+          <li>
+            <strong>OpenAI Realtime API</strong> – Attractive for end-to-end voice, but was
+            relatively new and less proven for healthcare guardrails when this was designed.
+          </li>
+          <li>
+            <strong>Whisper + Llama + Coqui TTS</strong> – Would reduce vendor lock-in and
+            per-call costs, but at the cost of increased latency and significantly more
+            infrastructure overhead.
+          </li>
+        </ul>
+      </section>
+
+      <section class="page-break">
+        <h2>3. Prompt Design</h2>
+        <p class="section-lead">
+          How the system prompt shapes the assistant’s behavior, keeps it on-task,
+          and ensures conversations stay safe and useful.
+        </p>
+
+        <h3>3.1 Persona and Tone</h3>
+        <pre><code>You are Ava, an AI-powered front-desk assistant for Confido Health Clinic.
+You are warm, empathetic, professional, and efficient.</code></pre>
+        <p>
+          Ava speaks in short, clear sentences, acknowledges patient concerns,
+          and avoids medical jargon. This keeps calls easy to follow for a wide
+          range of patients, including those who may be anxious or not very
+          familiar with healthcare terminology.
+        </p>
+
+        <h3>3.2 Dialogue Structure</h3>
+        <p>The prompt guides every call through a consistent structure:</p>
+        <pre><code>1. Greeting and intent discovery
+2. Identity verification when accessing personal information
+3. Question-by-question information gathering
+4. Tool calls (availability, booking, knowledge base lookups)
+5. Read-back and confirmation of key details
+6. Offer of additional help and courteous closing</code></pre>
+        <p>
+          The agent never asks multiple questions at once and always repeats
+          back dates, times, names, and email addresses before finalizing
+          an action such as booking an appointment.
+        </p>
+
+        <h3>3.3 Guardrails</h3>
+        <pre><code>- Do not diagnose, recommend treatments, or interpret results.
+- For chest pain, trouble breathing, severe bleeding, or mental health crisis:
+  ask the caller to hang up and call 911 (or local emergency services).
+- Verify identity before discussing any personal information.
+- With family members, speak only in general terms unless the patient
+  is present or clearly authorized.
+- For minors, involve a parent or legal guardian except where law allows
+  limited confidential services.</code></pre>
+        <p>
+          These rules keep the assistant focused on administrative workflows,
+          push emergencies directly to human care, and mirror the privacy and
+          minor-handling patterns used by the clinic.
+        </p>
+
+        <h3>3.4 Tool Calls and Data Normalization</h3>
+        <pre><code>Tool: calcom_get_available_slots
+- Input: start and end dates in YYYY-MM-DD (e.g., 2025-11-18).
+- Output: UTC time strings (e.g., 2025-11-18T03:30:00.000Z).
+
+Tool: calcom_create_booking
+- Input: chosen UTC time string, attendee name, email,
+         timeZone="Asia/Kolkata", language="en".</code></pre>
+        <p>
+          The prompt explains how to translate natural language dates like
+          “next Monday” into calendar dates, how to convert UTC to IST
+          for the caller, and how to keep the original UTC strings unchanged
+          when booking. It also includes patterns for collecting emails and
+          policy IDs character by character and reading them back.
+        </p>
+
+        <h3>3.5 Handling Edge Cases in Conversation</h3>
+        <ul>
+          <li>
+            If speech is unclear, Ava asks the caller to repeat or speak more slowly
+            and confirms critical details back to them.
+          </li>
+          <li>
+            If a tool fails once, Ava retries; if it fails again, she explains the
+            issue and offers alternatives such as a callback or website booking.
+          </li>
+          <li>
+            When callers ask about prescriptions, complex billing, test results,
+            or clinical advice, Ava explains that these topics are handled by
+            staff and offers to transfer or have someone call back.
+          </li>
+        </ul>
+      </section>
+
+      <section class="page-break">
+        <h2>4. Assumptions &amp; Limitations</h2>
+        <p class="section-lead">
+          Operating assumptions for the prototype, its main constraints, and how it
+          could evolve toward a production-ready assistant.
+        </p>
+
+        <h3>4.1 Assumptions</h3>
+
+        <h4>Technical</h4>
+        <ol>
+          <li>Calls have one primary speaker at a time, in English.</li>
+          <li>Audio quality is reasonable enough for ASR to recognize most words.</li>
+          <li>Dates are interpreted using US conventions and a fixed reference date.</li>
+          <li>A stable internet connection is available for real-time audio and API calls.</li>
+        </ol>
+
+        <h4>Workflow</h4>
+        <ol>
+          <li>Cal.com represents the clinic’s scheduling system for this prototype.</li>
+          <li>Insurance questions focus on whether a plan is accepted, not detailed benefits.</li>
+          <li>Basic identity (name and email) is sufficient to reserve an appointment slot.</li>
+          <li>The assistant is used for a single-location clinic with a modest call volume.</li>
+        </ol>
+
+        <h3>4.2 Limitations</h3>
+
+        <h4>Functional</h4>
+        <ol>
+          <li>One appointment is booked per call; group or multi-visit scheduling is handled by staff.</li>
+          <li>Insurance eligibility, copays, and authorizations are not checked in real time.</li>
+          <li>Prescriptions, test results, and medical questions are always redirected.</li>
+          <li>Billing and payments are out of scope; the assistant only routes to the billing team.</li>
+        </ol>
+
+        <h4>Technical</h4>
+        <ol>
+          <li>End-to-end latency is higher than a human receptionist, though still acceptable for a demo.</li>
+          <li>Each call is stateless; the system does not recall previous conversations.</li>
+          <li>Factual accuracy depends on external tools and the freshness of the knowledge base.</li>
+          <li>Outages in voice or scheduling providers directly affect availability.</li>
+        </ol>
+
+        <h3>4.3 Edge Cases and Future Extensions</h3>
+        <ul>
+          <li>
+            Overlapping speech and strong accents can still cause misrecognitions; the
+            confirmation patterns in the prompt help catch most of these.
+          </li>
+          <li>
+            Local changes such as holiday hours or weather closures require simple edits
+            to the clinic information document.
+          </li>
+          <li>
+            With more time, the same architecture can integrate directly with EMR
+            scheduling APIs, real-time insurance gateways, and multi-language support.
+          </li>
+        </ul>
+      </section>
+
+      <section class="page-break">
+        <h2>5. Design Considerations</h2>
+        <p class="section-lead">
+          Key choices that shape the caller experience and align the assistant with
+          real-world clinic workflows.
+        </p>
+
+        <h3>5.1 Caller Experience</h3>
+        <ul>
+          <li>
+            Information is gathered in small steps so callers are never overwhelmed
+            with questions.
+          </li>
+          <li>
+            The agent consistently confirms back critical details like dates, times,
+            emails, and policy numbers before taking action.
+          </li>
+          <li>
+            Status messages such as “Let me check our availability…” make short waits
+            feel intentional rather than like dead air.
+          </li>
+          <li>
+            If something cannot be done automatically, the assistant clearly explains
+            why and offers a simple next step (transfer, callback, or portal).
+          </li>
+        </ul>
+
+        <h3>5.2 Healthcare Context</h3>
+        <ul>
+          <li>
+            Safety is prioritized: emergency keywords trigger immediate redirection to
+            emergency services rather than trying to continue the call.
+          </li>
+          <li>
+            Privacy rules are built in: information about a patient is not shared
+            unless identity and authorization are clear.
+          </li>
+          <li>
+            The assistant is upfront about its limits and consistently offers to
+            connect callers to staff for anything clinical or complex.
+          </li>
+          <li>
+            Voice interaction lowers the barrier for patients who have difficulty using
+            web portals or reading long instructions.
+          </li>
+        </ul>
+
+        <h3>5.3 Summary</h3>
+        <p>
+          The design described above combines a voice interface, an LLM driven by a
+          detailed prompt, and external scheduling and knowledge components to support
+          a subset of front-desk tasks in a clinic setting. It intentionally focuses
+          on a limited scope—appointments, basic insurance acceptance questions, and
+          frequently asked clinic information—while directing any clinical questions
+          or ambiguous situations to human staff.
+        </p>
+      </section>
+    </article>
+  </body>
+</html>
+
+

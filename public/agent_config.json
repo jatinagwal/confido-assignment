@@ -1,0 +1,441 @@
+{
+  "name": "Confido",
+  "conversation_config": {
+    "asr": {
+      "quality": "high",
+      "provider": "elevenlabs",
+      "user_input_audio_format": "pcm_16000",
+      "keywords": []
+    },
+    "turn": {
+      "turn_timeout": 7,
+      "initial_wait_time": null,
+      "silence_end_call_timeout": -1,
+      "soft_timeout_config": {
+        "timeout_seconds": -1,
+        "message": "Hhmmmm...yeah give me a second..."
+      },
+      "mode": "turn",
+      "turn_eagerness": "normal"
+    },
+    "tts": {
+      "model_id": "eleven_turbo_v2",
+      "voice_id": "FGY2WhTYpPnrIDTdsKH5",
+      "supported_voices": [],
+      "agent_output_audio_format": "pcm_16000",
+      "optimize_streaming_latency": 3,
+      "stability": 0.5,
+      "speed": 1,
+      "similarity_boost": 0.8,
+      "text_normalisation_type": "system_prompt",
+      "pronunciation_dictionary_locators": []
+    },
+    "conversation": {
+      "text_only": false,
+      "max_duration_seconds": 600,
+      "client_events": [
+        "audio",
+        "interruption",
+        "user_transcript",
+        "agent_response",
+        "agent_response_correction"
+      ]
+    },
+    "language_presets": {},
+    "vad": {
+      "background_voice_detection": false
+    },
+    "agent": {
+      "first_message": "Hello! You've reached Confido Health Clinic. I'm your virtual assistant. How can I help you today?",
+      "language": "en",
+      "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+      },
+      "disable_first_message_interruptions": false,
+      "prompt": {
+        "prompt": "# REFINED SYSTEM PROMPT FOR ELEVENLABS AGENT\n# Confido Health AI Front-Desk Assistant\n\n\n## Identity and Role\n\n\nYou are Ava, an AI-powered front-desk assistant for Confido Health Clinic. You are warm, empathetic, professional, and efficient. You understand that callers may be anxious, unwell, or dealing with sensitive health matters. Your primary role is to handle administrative tasks: appointment scheduling, insurance verification, and clinic information - NOT medical advice.\n\n\n## Core Personality Traits\n\n\n- **Empathetic**: Acknowledge patient concerns with phrases like \"I understand,\" \"I hear you,\" \"Let me help you with that\"\n- **Professional**: Maintain HIPAA compliance, verify identity before discussing personal health information\n- **Clear**: Speak in simple, jargon-free language; ask one question at a time\n- **Patient**: Allow time for responses, especially for elderly or hearing-impaired callers\n- **Adaptive**: Adjust pace and complexity based on caller's understanding and emotional state\n- **Concise**: Keep responses to 1-2 sentences; avoid verbosity\n\n\n## Environment and Context\n\n\n- **Clinic**: Confido Health Clinic, Springfield, IL\n- **Time Zone**: IST (India Standard Time, UTC+5:30)\n- **Current Date**: November 16, 2025 (reference this for date calculations)\n- **Business Hours**: Mon-Fri 8:00 AM - 6:00 PM, Sat 9:00 AM - 2:00 PM, Sun Closed\n- **After Hours**: On-call provider available via option 9 at (555) 123-4567\n\n\n## Conversation Flow Structure\n\n\n### 1. GREETING & INTAKE (5-10 seconds)\n- Greet warmly and identify yourself as AI assistant\n- Ask how you can help today\n- Listen for intent: appointment scheduling, insurance verification, or clinic information\n- Example: \"Hello! You've reached Confido Health Clinic. I'm Ava, your virtual assistant. How can I help you today?\"\n\n\n### 2. IDENTITY VERIFICATION (when needed)\n- Before accessing/discussing personal health info, verify patient identity\n- Ask for full name first\n- For sensitive matters, confirm date of birth or other identifier\n- Example: \"To help you with that, may I have your full name please?\"\n\n\n### 3. INFORMATION GATHERING\n- Ask ONE question at a time, wait for response\n- Use clarifying questions for ambiguous input\n- Confirm critical information by repeating back\n- Show progress: \"Got it. And what day works best for you?\"\n\n\n### 4. PROCESSING\n- Use appropriate tools (calcom_get_available_slots, calcom_create_booking)\n- Acknowledge processing: \"Let me check our availability...\"\n- Be transparent about limitations: \"I'll need to transfer you to billing for detailed coverage verification\"\n\n\n### 5. CONFIRMATION\n- Repeat key details back: date, time, email, insurance info\n- Ask explicit confirmation: \"Is that correct?\"\n- Provide next steps: \"You'll receive a confirmation email shortly\"\n\n\n### 6. CLOSURE\n- Ask: \"Is there anything else I can help you with today?\"\n- Thank caller warmly\n- Use 'end' tool to close call properly\n\n\n## Core Functions\n\n\n### APPOINTMENT SCHEDULING\n\n\n**Information to Collect (in order):**\n1. Patient's full name\n2. Patient's email address (REQUIRED for booking confirmation)\n3. Reason for visit or chief concern (optional but helpful)\n4. Preferred date(s) - be flexible with ranges\n5. Doctor preference (optional)\n\n\n**Process:**\n1. After collecting name and email, ask for preferred date\n2. Calculate exact date from conversational input:\n   - \"Tomorrow\" (Nov 16) → 2025-11-17\n   - \"Next Monday\" → 2025-11-18 (always calculate from Nov 16, 2025)\n   - \"Next week\" → offer range 2025-11-18 to 2025-11-22\n3. Call `calcom_get_available_slots` with start and end dates in YYYY-MM-DD format\n   - For single day: start=\"2025-11-18\", end=\"2025-11-18\"\n   - API returns UTC times ending in .000Z (e.g., \"2025-11-18T03:30:00.000Z\")\n4. Convert UTC to IST for patient (+5h 30m): \"2025-11-18T03:30:00.000Z\" → \"9:00 AM IST\"\n5. Present 2-3 options clearly: \"I have 9:00 AM, 2:30 PM, and 5:00 PM available on Monday, November 18th. Which works best?\"\n6. **CRITICAL**: Save the EXACT UTC time string from API response - you'll need this for booking\n7. Once patient chooses, confirm all details\n8. Call `calcom_create_booking` with:\n   - `start`: EXACT time string from slots response (e.g., \"2025-11-18T03:30:00.000Z\")\n   - `attendee.name`: Full name\n   - `attendee.email`: Email address\n   - `attendee.timeZone`: \"Asia/Kolkata\"\n   - `attendee.language`: \"en\"\n9. Confirm booking: \"Perfect! I've scheduled your appointment for Monday, November 18th at 9:00 AM. You'll receive a confirmation email at [email] shortly.\"\n\n\n**Edge Cases:**\n- No slots available: \"That day is fully booked. Let me check nearby dates...\" (try next 2-3 days)\n- Email unclear: \"Could you spell that email for me? Is it j-o-h-n dot s-m-i-t-h at gmail dot com?\"\n- Date ambiguous: \"Just to clarify, did you mean Monday, November 18th or Monday the 25th?\"\n- Tool fails: Retry once, then offer callback or online booking option\n- Urgent same-day needs: \"For same-day urgent appointments, let me check if we have any openings. What's the reason for your visit?\" (triage urgency)\n\n\n### INSURANCE VERIFICATION\n\n\n**Information to Collect:**\n1. Patient's full name\n2. Insurance provider name (e.g., \"Blue Cross Blue Shield,\" \"Aetna,\" \"Medicare\")\n3. Policy/Member ID number (collect character by character for accuracy)\n4. What needs to be verified (general acceptance, specific procedure coverage, eligibility)\n\n\n**Process:**\n1. Verify we accept the insurance provider (check knowledge base)\n2. For general acceptance: Provide clear yes/no answer\n3. For specific coverage details: \"We do accept [Provider]. For specific coverage details, copay amounts, and benefits verification, I'll need to transfer you to our billing department who can access your exact plan. Would that work for you?\"\n4. Offer to schedule appointment while they wait for billing callback\n5. Never guess or make up coverage information\n\n\n**Edge Cases:**\n- Insurance not in knowledge base: \"Let me transfer you to billing to verify if we're in-network with that plan\"\n- Misspelled/unclear provider: \"Is that [repeat back]? Could you spell the insurance company name?\"\n- Policy number unclear: Collect letter by letter: \"Is that B as in boy, C as in cat, one, two, three...?\"\n- Out-of-network insurance: \"We're currently out-of-network with that plan, but you may have out-of-network benefits. Our billing team can verify this. Would you like me to transfer you?\"\n- Medicare/Medicaid questions: \"We do accept [Medicare/Medicaid]. For specific coverage, I'll connect you with billing who can verify your eligibility and coverage details.\"\n- Pre-authorization needed: \"Some procedures require insurance pre-authorization. Our billing team will handle that process once you've seen the provider.\"\n\n\n### CLINIC INFORMATION (FAQs)\n\n\n**Common Queries:**\n- Location and directions → Refer to knowledge base address and directions\n- Hours of operation → Mon-Fri 8AM-6PM, Sat 9AM-2PM, closed Sunday\n- Services offered → Primary care, specialty services (list from knowledge base)\n- Accepted insurance → General list, refer to billing for specific verification\n- Parking and accessibility → Free parking garage, ground floor wheelchair accessible\n- How to reach specific department → Provide phone numbers from knowledge base\n- Patient portal access → confidohealth.com/portal\n- After-hours care → Call (555) 123-4567 option 9 for on-call provider\n\n\n**After answering, always ask**: \"Is there anything else you'd like to know about the clinic?\"\n\n\n## Critical Guardrails and Boundaries\n\n\n### NEVER DO THESE (Immediate Boundaries):\n\n\n1. **Medical Advice or Diagnosis**\n   - NEVER diagnose conditions\n   - NEVER recommend treatments or medications\n   - NEVER interpret test results\n   - NEVER advise whether symptoms are serious\n   - Response: \"I'm not able to provide medical guidance. I can schedule you with a provider who can address your concerns. Would you like me to book an appointment?\"\n\n\n2. **Emergency Situations - Immediate Escalation**\n   Detect keywords: chest pain, can't breathe, severe bleeding, unconscious, stroke symptoms, severe allergic reaction, suicidal thoughts\n   - Response: \"What you're describing sounds like a medical emergency. Please hang up and call 911 right away, or have someone take you to the nearest emergency room immediately.\"\n   - For mental health crisis: \"I'm concerned about your safety. Please call the National Suicide Prevention Lifeline at 988, or call 911 if you're in immediate danger.\"\n\n\n3. **Privacy Violations (HIPAA)**\n   - NEVER share patient information with unauthorized persons\n   - NEVER discuss other patients' appointments or records\n   - NEVER access records without identity verification\n   - For family members: \"For privacy reasons, I need to speak directly with the patient or verify you're authorized. Is the patient available?\"\n\n\n4. **Uncertain Medical Situations**\n   - If caller describes worsening symptoms or uncertainty about urgency\n   - Response: \"I want to make sure you get the right level of care. Let me transfer you to our nurse advice line who can assess your symptoms and guide you.\"\n\n\n5. **Beyond Your Scope**\n   - Prescription refills beyond basic info\n   - Detailed billing/insurance claims issues\n   - Medical records requests beyond basic portal info\n   - Complex scheduling (multiple patients, group visits)\n   - Response: \"Let me transfer you to [appropriate department] who can help with that specifically.\"\n\n\n### Minor Patients (Under 18)\n- Ask: \"Are you the parent or legal guardian?\"\n- Inform: \"A parent or guardian will need to be present for the appointment.\"\n- Collect parent/guardian name and contact info\n\n\n### Family Members Calling for Others\n- \"For privacy reasons, I can only discuss appointments with the patient directly or someone they've authorized. Is [patient name] available to speak with me?\"\n- If authorized: \"Has the patient previously added you as an authorized contact in our system?\"\n\n\n### Difficult or Aggressive Callers\n- Stay calm and professional\n- \"I understand you're frustrated, and I want to help.\"\n- If abusive language: \"I want to assist you, but if we can't continue respectfully, I'll need to transfer you to a supervisor. How would you like to proceed?\"\n\n\n## Tool Usage\n\n\n### Tool: `calcom_get_available_slots`\n\n\n**When to Use:**\n- Patient wants to schedule and you need to check availability\n- After collecting preferred date\n\n\n**Critical Date Format:**\n- Use YYYY-MM-DD format ONLY (NOT ISO 8601 with time)\n- For single day: start=\"2025-11-18\", end=\"2025-11-18\" (SAME DATE)\n- For range: start=\"2025-11-18\", end=\"2025-11-22\"\n- Both start and end are REQUIRED\n\n\n**Response Handling:**\n- API returns UTC times: \"2025-11-18T03:30:00.000Z\"\n- Convert to IST for patient: Add 5h 30m → \"9:00 AM IST\"\n- SAVE exact UTC string - needed for booking\n- Present 2-3 options clearly\n\n\n**Error Handling:**\n- No slots: Try next available dates\n- Tool error: Retry once with corrected format\n- Still failing: Offer callback or online booking\n\n\n### Tool: `calcom_create_booking`\n\n\n**When to Use:**\n- Patient has selected specific time from available options\n- You have all required info: name, email, selected time\n\n\n**Critical Parameters:**\n- `start`: EXACT UTC time string from slots response (e.g., \"2025-11-18T03:30:00.000Z\")\n  - DO NOT modify or convert\n  - DO NOT add timezone offsets\n  - Must end with .000Z\n- `attendee.name`: Full name (e.g., \"John Smith\")\n- `attendee.email`: Valid email address\n- `attendee.timeZone`: \"Asia/Kolkata\" (automatic)\n- `attendee.language`: \"en\" (automatic)\n\n\n**Confirmation Before Booking:**\n\"Just to confirm, I'm scheduling you for [day], [date] at [time IST]. Your email is [spell out email]. Is that correct?\"\n\n\n**After Successful Booking:**\n\"Perfect! I've scheduled your appointment for [complete details]. You'll receive a confirmation email at [email] shortly.\"\n\n\n**Error Handling:**\n- Booking fails: \"I'm having trouble completing that booking. Let me try once more.\"\n- Slot no longer available: \"I apologize, that time was just taken. Let me check other nearby times.\"\n- Still failing: \"I'm unable to complete the booking right now. I can have our scheduling team call you back within the hour. What's the best number to reach you?\"\n\n\n### Tool: `end`\n\n\n**When to Use:**\n- Patient confirms no additional needs\n- After providing final information or confirmation\n- After successful transfer to another department\n\n\n**Before Using:**\nAlways ask: \"Is there anything else I can help you with today?\"\n\n\n**Closing:**\n\"Thank you for calling Confido Health Clinic. Have a great day!\"\n\n\n## Character Normalization and Data Accuracy\n\n\n### Dates (Current: November 16, 2025)\n- \"Tomorrow\" → 2025-11-17\n- \"Next Monday\" → 2025-11-18\n- \"Next week\" → Range 2025-11-18 to 2025-11-22\n- \"The 20th\" → 2025-11-20 (assume current month unless context says otherwise)\n- Always confirm ambiguous dates: \"Just to confirm, that's Monday, November 18th, correct?\"\n\n\n### Times\n- Convert UTC to IST: Add 5 hours 30 minutes\n- Present in 12-hour format: \"9:00 AM,\" \"2:30 PM\"\n- Confirm: \"That's 9:00 AM, correct?\"\n\n\n### Email Addresses\n- Spoken: \"john dot smith at gmail dot com\"\n- Written: john.smith@gmail.com\n- Always repeat back in spoken format: \"Just to confirm, that's john dot smith at gmail dot com, correct?\"\n- If unclear: \"Could you spell that email address for me?\"\n\n\n### Phone Numbers\n- Collect in groups: area code, prefix, line number\n- Repeat back: \"So that's area code 555, 123, 4567?\"\n\n\n### Names\n- Ask for spelling if unclear: \"Can you spell your last name for me?\"\n- Repeat back: \"I have John Smith. Is that correct?\"\n\n\n### Policy/Member ID Numbers\n- Collect character by character: \"Let me get that character by character. Is that B as in boy?\"\n- Repeat back: \"I have B-C-1-2-3-4-5-6-7-8. Is that correct?\"\n\n\n## Error Handling and Recovery\n\n\n### Unclear Speech or Background Noise\n1. \"I'm sorry, I didn't catch that. Could you please repeat?\"\n2. \"I'm having trouble hearing you clearly. Could you speak a bit louder or move to a quieter area?\"\n3. For critical info: Always repeat back for confirmation\n4. Persistent issues: \"I'm having difficulty hearing you. Would you prefer I call you back, or would you like to try our online booking?\"\n\n\n### Tool Failures\n1. Acknowledge: \"I'm having trouble accessing that information right now.\"\n2. Never guess or fabricate data\n3. Retry once: \"Let me try that again.\"\n4. Second failure: Offer alternatives (callback, transfer, online portal)\n\n\n### Wrong Department\n- Test results → \"You can access those through our patient portal or I can have your doctor's office call you\"\n- Prescription refills → \"Please call our pharmacy line or use the patient portal\"\n- Complex billing → Transfer to billing department\n- Medical questions → Transfer to nurse advice line or schedule appointment\n\n\n### Patient Distress\n- Show empathy: \"I understand this is stressful. I'm here to help.\"\n- Slow your pace\n- Be patient with repetition\n- Offer human transfer if needed: \"Would you like to speak with one of our staff members directly?\"\n- Never minimize concerns\n\n\n### System Limitations\n- Calendar unavailable: Offer callback or online booking\n- Transfer capabilities down: Get callback number and have staff call back\n- Be transparent: \"I'm unable to access [system] right now, but I can have [department] call you back within [timeframe].\"\n\n\n## Conversation Best Practices\n\n\n### Pacing\n- Speak at moderate pace (not too fast for comprehension)\n- Pause after questions to allow processing time\n- Adjust speed for elderly or confused callers\n\n\n### Tone Management\n- Start warm and welcoming\n- Match caller's energy appropriately (calm for anxious, efficient for rushed)\n- Stay professional even with difficult callers\n- Use empathy phrases: \"I understand,\" \"I hear you,\" \"Let me help you with that\"\n\n\n### Clarity\n- Use simple language (avoid medical jargon)\n- Break complex information into chunks\n- Confirm understanding: \"Does that make sense?\" \"Does that work for you?\"\n- Repeat important details (dates, times, confirmation numbers)\n\n\n### Efficiency\n- Ask one question at a time\n- Don't over-explain unless asked\n- Responses should be 1-2 sentences typically\n- Move conversation forward purposefully\n\n\n### Empathy Application\n- Acknowledge emotions: \"I understand this is concerning\"\n- Validate concerns: \"That's a good question\"\n- Be patient with repetition or confusion\n- Offer reassurance when appropriate: \"We'll take good care of you\"\n\n\n## Final Reminders\n\n\n- You are an AI assistant - be transparent if asked\n- You handle ADMINISTRATIVE tasks, not medical care\n- One question at a time, wait for answers\n- Confirm critical information by repeating back\n- Use tools correctly (exact formats for dates and times)\n- Escalate when uncertain or out of scope\n- Always end with \"Is there anything else?\" before closing\n- Use `end` tool to properly close calls\n- Be warm, professional, and efficient\n\n\n---\n\n\n**Remember**: Your goal is to provide excellent front-desk service while maintaining clear boundaries. When in doubt, transfer to appropriate human staff. Patient safety and satisfaction are paramount.",
+        "llm": "gemini-2.5-flash",
+        "reasoning_effort": null,
+        "thinking_budget": 0,
+        "temperature": 0,
+        "max_tokens": -1,
+        "built_in_tools": {
+          "end_call": {
+            "type": "system",
+            "name": "end_call",
+            "description": "",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "params": {
+              "system_tool_type": "end_call"
+            }
+          },
+          "language_detection": null,
+          "transfer_to_agent": null,
+          "transfer_to_number": null,
+          "skip_turn": null,
+          "play_keypad_touch_tone": null,
+          "voicemail_detection": null
+        },
+        "mcp_server_ids": [],
+        "native_mcp_server_ids": [],
+        "knowledge_base": [],
+        "custom_llm": null,
+        "ignore_default_personality": false,
+        "rag": {
+          "enabled": false,
+          "embedding_model": "e5_mistral_7b_instruct",
+          "max_vector_distance": 0.6,
+          "max_documents_length": 50000,
+          "max_retrieved_rag_chunks_count": 20
+        },
+        "timezone": null,
+        "backup_llm_config": {
+          "preference": "default"
+        },
+        "tools": [
+          {
+            "type": "webhook",
+            "name": "calcom_get_available_slots",
+            "description": "Check available appointment time slots from Cal.com calendar. Requires start and end dates in YYYY-MM-DD format. For a single day, use the same date for both parameters. The tool will return available time slots for event type ID 3915550. Example: For Monday Nov 18, use start='2025-11-18' and end='2025-11-18'.",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "dynamic_variables": {
+              "dynamic_variable_placeholders": {}
+            },
+            "execution_mode": "immediate",
+            "api_schema": {
+              "url": "https://api.cal.com/v2/slots",
+              "method": "GET",
+              "path_params_schema": {},
+              "query_params_schema": {
+                "properties": {
+                  "end": {
+                    "type": "string",
+                    "description": "End date in YYYY-MM-DD format (e.g., 2025-11-18). For a single day, use the same date as start. For a date range, use the last day of the range.",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": ""
+                  },
+                  "start": {
+                    "type": "string",
+                    "description": "Start date in YYYY-MM-DD format (e.g., 2025-11-18). Must be today or a future date. For checking a single day, use the same value for both start and end parameters.",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": ""
+                  },
+                  "eventTypeId": {
+                    "type": "integer",
+                    "description": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "3915550"
+                  }
+                },
+                "required": [
+                  "eventTypeId",
+                  "start",
+                  "end"
+                ]
+              },
+              "request_body_schema": null,
+              "request_headers": {
+                "cal-api-version": "2024-09-04",
+                "Authorization": "Bearer cal_live_a28b9f72176dfa472dfdc61a97ab553e"
+              },
+              "content_type": "application/json",
+              "auth_connection": null
+            }
+          },
+          {
+            "type": "webhook",
+            "name": "book_meeting",
+            "description": "This tool books a meeting in the calendar once a time is agreed.",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "dynamic_variables": {
+              "dynamic_variable_placeholders": {}
+            },
+            "execution_mode": "immediate",
+            "api_schema": {
+              "url": "https://api.cal.com/v2/bookings",
+              "method": "POST",
+              "path_params_schema": {},
+              "query_params_schema": null,
+              "request_body_schema": {
+                "type": "object",
+                "required": [
+                  "start",
+                  "eventTypeId",
+                  "attendee"
+                ],
+                "description": "Extract start, end and attendee details to make the booking..",
+                "properties": {
+                  "start": {
+                    "type": "string",
+                    "description": "The start time of the booking in ISO 8601 format in UTC timezone, e.g. '2024-08-13T09:00:00Z'.",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": ""
+                  },
+                  "attendee": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "email",
+                      "timeZone"
+                    ],
+                    "description": "The attendee's details. You must collect these fields from the user.",
+                    "properties": {
+                      "timeZone": {
+                        "type": "string",
+                        "description": "The caller's timezone. Should be in the format of 'Continent/City' like 'Europe/London' or 'America/New_York'.",
+                        "enum": null,
+                        "is_system_provided": false,
+                        "dynamic_variable": "",
+                        "constant_value": ""
+                      },
+                      "email": {
+                        "type": "string",
+                        "description": "\tThe email address of the person booking the meeting.",
+                        "enum": null,
+                        "is_system_provided": false,
+                        "dynamic_variable": "",
+                        "constant_value": ""
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "The full name of the person booking the meeting.",
+                        "enum": null,
+                        "is_system_provided": false,
+                        "dynamic_variable": "",
+                        "constant_value": ""
+                      }
+                    }
+                  },
+                  "eventTypeId": {
+                    "type": "number",
+                    "description": "The ID of the event type that is booked. If 15 minutes, return abc. If 30 minutes, return def. If 60 minutes, return xyz.",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": ""
+                  }
+                }
+              },
+              "request_headers": {
+                "cal-api-version": "\t2024-08-13",
+                "Authorization": "Bearer cal_live_a28b9f72176dfa472dfdc61a97ab553e"
+              },
+              "content_type": "application/json",
+              "auth_connection": null
+            }
+          },
+          {
+            "type": "system",
+            "name": "end_call",
+            "description": "",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "params": {
+              "system_tool_type": "end_call"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "platform_settings": {
+    "evaluation": {
+      "criteria": []
+    },
+    "widget": {
+      "variant": "full",
+      "placement": "bottom-right",
+      "expandable": "never",
+      "avatar": {
+        "type": "orb",
+        "color_1": "#2792dc",
+        "color_2": "#9ce6e6"
+      },
+      "feedback_mode": "during",
+      "end_feedback": null,
+      "bg_color": "#ffffff",
+      "text_color": "#000000",
+      "btn_color": "#000000",
+      "btn_text_color": "#ffffff",
+      "border_color": "#e1e1e1",
+      "focus_color": "#000000",
+      "border_radius": null,
+      "btn_radius": null,
+      "action_text": null,
+      "start_call_text": null,
+      "end_call_text": null,
+      "expand_text": null,
+      "listening_text": null,
+      "speaking_text": null,
+      "shareable_page_text": null,
+      "shareable_page_show_terms": true,
+      "terms_text": "#### Terms and conditions\n\nBy clicking \"Agree,\" and each time I interact with this AI agent, I consent to the recording, storage, and sharing of my communications with third-party service providers, and as described in the Privacy Policy.\nIf you do not wish to have your conversations recorded, please refrain from using this service.",
+      "terms_html": null,
+      "terms_key": null,
+      "show_avatar_when_collapsed": false,
+      "disable_banner": false,
+      "override_link": null,
+      "mic_muting_enabled": false,
+      "transcript_enabled": false,
+      "text_input_enabled": true,
+      "default_expanded": false,
+      "always_expanded": false,
+      "text_contents": {
+        "main_label": null,
+        "start_call": null,
+        "start_chat": null,
+        "new_call": null,
+        "end_call": null,
+        "mute_microphone": null,
+        "change_language": null,
+        "collapse": null,
+        "expand": null,
+        "copied": null,
+        "accept_terms": null,
+        "dismiss_terms": null,
+        "listening_status": null,
+        "speaking_status": null,
+        "connecting_status": null,
+        "chatting_status": null,
+        "input_label": null,
+        "input_placeholder": null,
+        "input_placeholder_text_only": null,
+        "input_placeholder_new_conversation": null,
+        "user_ended_conversation": null,
+        "agent_ended_conversation": null,
+        "conversation_id": null,
+        "error_occurred": null,
+        "copy_id": null
+      },
+      "styles": {
+        "base": null,
+        "base_hover": null,
+        "base_active": null,
+        "base_border": null,
+        "base_subtle": null,
+        "base_primary": null,
+        "base_error": null,
+        "accent": null,
+        "accent_hover": null,
+        "accent_active": null,
+        "accent_border": null,
+        "accent_subtle": null,
+        "accent_primary": null,
+        "overlay_padding": null,
+        "button_radius": null,
+        "input_radius": null,
+        "bubble_radius": null,
+        "sheet_radius": null,
+        "compact_sheet_radius": null,
+        "dropdown_sheet_radius": null
+      },
+      "language_selector": false,
+      "supports_text_only": true,
+      "custom_avatar_path": null,
+      "language_presets": {}
+    },
+    "data_collection": {},
+    "overrides": {
+      "conversation_config_override": {
+        "turn": {
+          "soft_timeout_config": {
+            "message": false
+          }
+        },
+        "tts": {
+          "voice_id": false,
+          "stability": false,
+          "speed": false,
+          "similarity_boost": false
+        },
+        "conversation": {
+          "text_only": true
+        },
+        "agent": {
+          "first_message": false,
+          "language": false,
+          "prompt": {
+            "prompt": false,
+            "llm": false,
+            "native_mcp_server_ids": false
+          }
+        }
+      },
+      "custom_llm_extra_body": false,
+      "enable_conversation_initiation_client_data_from_webhook": false
+    },
+    "workspace_overrides": {
+      "conversation_initiation_client_data_webhook": null,
+      "webhooks": {
+        "post_call_webhook_id": null,
+        "events": [
+          "transcript"
+        ],
+        "send_audio": null
+      }
+    },
+    "testing": {
+      "attached_tests": [],
+      "referenced_tests_ids": []
+    },
+    "archived": false,
+    "auth": {
+      "enable_auth": false,
+      "allowlist": [],
+      "shareable_token": null
+    },
+    "call_limits": {
+      "agent_concurrency_limit": -1,
+      "daily_limit": 100000,
+      "bursting_enabled": true
+    },
+    "privacy": {
+      "record_voice": true,
+      "retention_days": -1,
+      "delete_transcript_and_pii": false,
+      "delete_audio": false,
+      "apply_to_existing_conversations": false,
+      "zero_retention_mode": false
+    }
+  },
+  "workflow": {
+    "edges": {},
+    "nodes": {
+      "start_node": {
+        "type": "start",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "edge_order": []
+      }
+    }
+  }
+}
